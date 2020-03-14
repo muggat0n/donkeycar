@@ -237,8 +237,58 @@ class PWMThrottle:
     def shutdown(self):
         self.run(0) #stop vehicle
 
+class SkidSteer:
+    ''' 
+    Pi Motor Controller 
+    Used for each motor on a differential drive car.
+    '''
+    def __init__(self, motor_num):
+        import RPi.GPIO as GPIO
+        import PiMotor
+
+        # m1 = passenger side - Right
+        # m2 = drivers side - Left
+
+        #Name of Individual MOTORS 
+        self.m1 = PiMotor.Motor("MOTOR1",1)
+        self.m2 = PiMotor.Motor("MOTOR2",1)
+        self.motorAll = PiMotor.LinkedMotors(self.m1, self.m2)
+        
+    def run(self, throttle, steering):
+        '''
+        Update the speed of the motor where 1 is full forward and
+        -1 is full backwards.
+        '''
+        if throttle > 1 or throttle < -1:
+            raise ValueError( "throttle must be between 100(forward) and -100(reverse)")
+ 
+        if steering > 1 or steering < -1:
+            raise ValueError( "steering must be between 1(right) and -1(left)")
+
+        left_motor_speed = throttle
+        right_motor_speed = throttle
+
+        self.motorAll.forward(100)
+        if steering < 0:
+            left_motor_speed *= (1.0 - (-steering))
+        elif steering > 0:
+            right_motor_speed *= (1.0 - steering)
+
+        left_motor_speed = throttle * 100
+        right_motor_speed = throttle * 100
+
+        self.moveit(self.m1, left_motor_speed)
+        self.moveit(self.m2, right_motor_speed)
+
+    def moveit(self, motor, speed):
+        if speed < 0:
+            motor.reverse(speed * 100)
+        else:
+            motor.forward(speed * 100)
 
 
+    def shutdown(self):
+        pass
 class Adafruit_DCMotor_Hat:
     ''' 
     Adafruit DC Motor Controller 
