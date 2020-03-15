@@ -9,37 +9,37 @@ import time
 import donkeycar as dk
 
         
-class PCA9685:
-    ''' 
-    PWM motor controler using PCA9685 boards. 
-    This is used for most RC Cars
-    '''
-    def __init__(self, channel, address=0x40, frequency=60, busnum=None, init_delay=0.1):
+# class PCA9685:
+#     ''' 
+#     PWM motor controler using PCA9685 boards. 
+#     This is used for most RC Cars
+#     '''
+#     def __init__(self, channel, address=0x40, frequency=60, busnum=None, init_delay=0.1):
 
-        self.default_freq = 60
-        self.pwm_scale = frequency / self.default_freq
+#         self.default_freq = 60
+#         self.pwm_scale = frequency / self.default_freq
 
-        import Adafruit_PCA9685
-        # Initialise the PCA9685 using the default address (0x40).
-        if busnum is not None:
-            from Adafruit_GPIO import I2C
-            #replace the get_bus function with our own
-            def get_bus():
-                return busnum
-            I2C.get_default_bus = get_bus
-        self.pwm = Adafruit_PCA9685.PCA9685(address=address)
-        self.pwm.set_pwm_freq(frequency)
-        self.channel = channel
-        time.sleep(init_delay) # "Tamiya TBLE-02" makes a little leap otherwise
+#         import Adafruit_PCA9685
+#         # Initialise the PCA9685 using the default address (0x40).
+#         if busnum is not None:
+#             from Adafruit_GPIO import I2C
+#             #replace the get_bus function with our own
+#             def get_bus():
+#                 return busnum
+#             I2C.get_default_bus = get_bus
+#         self.pwm = Adafruit_PCA9685.PCA9685(address=address)
+#         self.pwm.set_pwm_freq(frequency)
+#         self.channel = channel
+#         time.sleep(init_delay) # "Tamiya TBLE-02" makes a little leap otherwise
 
-    def set_pulse(self, pulse):
-        try:
-            self.pwm.set_pwm(self.channel, 0, int(pulse * self.pwm_scale))
-        except:
-            self.pwm.set_pwm(self.channel, 0, int(pulse * self.pwm_scale))
+#     def set_pulse(self, pulse):
+#         try:
+#             self.pwm.set_pwm(self.channel, 0, int(pulse * self.pwm_scale))
+#         except:
+#             self.pwm.set_pwm(self.channel, 0, int(pulse * self.pwm_scale))
 
-    def run(self, pulse):
-        self.set_pulse(pulse)
+#     def run(self, pulse):
+#         self.set_pulse(pulse)
 
 
 class PiGPIO_PWM():
@@ -237,7 +237,7 @@ class PWMThrottle:
     def shutdown(self):
         self.run(0) #stop vehicle
 
-class SkidSteer:
+class SBC_PiMotor:
     ''' 
     Pi Motor Controller 
     Used for each motor on a differential drive car.
@@ -246,49 +246,36 @@ class SkidSteer:
         import RPi.GPIO as GPIO
         import PiMotor
 
-        # m1 = passenger side - Right
-        # m2 = drivers side - Left
+        if motor_num > 4 or motor_num < 1:
+            raise ValueError( "Motor number must be 1, 2, 3 or 4.")
 
-        #Name of Individual MOTORS 
-        self.m1 = PiMotor.Motor("MOTOR1",1)
-        self.m2 = PiMotor.Motor("MOTOR2",1)
-        self.motorAll = PiMotor.LinkedMotors(self.m1, self.m2)
+        self.motor_num = motor_num
+        motor_name = "MOTOR" + str(motor_num)
+
+        self.motor = PiMotor.Motor(motor_name, 1)
+
         
-    def run(self, throttle, steering):
+    def run(self, speed):
         '''
         Update the speed of the motor where 1 is full forward and
         -1 is full backwards.
         '''
-        if throttle > 1 or throttle < -1:
-            raise ValueError( "throttle must be between 100(forward) and -100(reverse)")
- 
-        if steering > 1 or steering < -1:
-            raise ValueError( "steering must be between 1(right) and -1(left)")
 
-        left_motor_speed = throttle
-        right_motor_speed = throttle
+        if speed > 1 or speed < -1:
+            raise ValueError( "Speed must be between 1(forward) and -1(reverse)")
+        
+        self.speed = speed
+        self.throttle = int(dk.utils.map_range(abs(speed), -1, 1, -255, 255))
 
-        self.motorAll.forward(100)
-        if steering < 0:
-            left_motor_speed *= (1.0 - (-steering))
-        elif steering > 0:
-            right_motor_speed *= (1.0 - steering)
-
-        left_motor_speed = throttle * 100
-        right_motor_speed = throttle * 100
-
-        self.moveit(self.m1, left_motor_speed)
-        self.moveit(self.m2, right_motor_speed)
-
-    def moveit(self, motor, speed):
         if speed < 0:
-            motor.reverse(speed * 100)
+            self.motor.reverse(speed * 100 * -1)
         else:
-            motor.forward(speed * 100)
+            self.motor.forward(speed * 100)
 
 
     def shutdown(self):
         pass
+
 class Adafruit_DCMotor_Hat:
     ''' 
     Adafruit DC Motor Controller 
